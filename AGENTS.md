@@ -1,131 +1,80 @@
-# AGENTS.md
+# Agent Instructions for onword.nvim
 
-## Build, Lint, and Test
+This document contains instructions for AI agents (and humans) working on the `onword.nvim` repository.
 
-This project is a Neovim plugin written in Lua.
+## 1. Build, Lint, and Test
 
-### Build
-- There is no compile step; Lua files are sourced directly by Neovim.
-- Ensure `lua/` is in the Neovim runtime path.
+This project is a Neovim plugin written in Lua. It does not use a standard test runner like `busted` or `plenary`. Instead, it uses a standalone Lua script for testing.
+
+### Running Tests
+To run the test suite, execute the test file using Neovim's headless mode:
+
+```bash
+nvim -l tests/textobjects.lua
+```
+
+**Note:** The test script `tests/textobjects.lua` currently runs all tests defined in the `tests` table. To run a single test, you would currently need to temporarily comment out other tests in the `tests` table within that file.
 
 ### Linting
-- Currently, there is no strict linter configuration (e.g., `.luacheckrc`).
-- **Recommendation:** Use `luacheck` for static analysis.
-- **Command:** `luacheck lua/`
-- **Globals:** Must respect the `vim` global.
+There are no strict linting configurations (like `.luacheckrc`) present. However, standard Lua guidelines apply.
+- Ensure no global variables are leaked.
+- Unused variables should be removed or prefixed with `_`.
 
-### Formatting
-- **Style:** Tabs for indentation.
-- **Tool:** `stylua` is recommended.
-- **Command:** `stylua lua/`
+## 2. Code Style Guidelines
 
-### Testing
-- **Status:** No test suite is currently implemented in this repository.
-- **Future Convention:** 
-  - Tests should be placed in `tests/` or `spec/`.
-  - The `plenary.nvim` test harness is the standard for Neovim plugins.
-  - Run command would typically be: `nvim --headless -c "PlenaryBustedDirectory tests/ { minimal_init = 'tests/minimal_init.lua' }" -c "cquit"`
-
-## Code Style Guidelines
+Adhere strictly to the following conventions to maintain consistency with the existing codebase.
 
 ### General
-- **Language:** Lua 5.1 / LuaJIT (Neovim compatible).
-- **Module Pattern:** Return a table `M` at the end of the file.
-  ```lua
-  local M = {}
-  -- implementation
-  return M
-  ```
-
-### Formatting Rules
-- **Indentation:** **Use Tabs**. Do not use spaces for indentation.
-- **Line Endings:** Unix (LF).
-- **Line Length:** Soft limit of 100-120 characters.
-- **Strings:** Double quotes `"` are generally preferred over single quotes `'`, but consistency within the file is key.
-- **Blocks:** Use `do ... end` blocks sparingly, mostly for scope control.
+- **Indentation:** Use **Tabs**, not spaces.
+- **Quotes:** Use **double quotes** `"` for strings (e.g., `require("onword.motions")`), unless the string contains double quotes.
+- **Line Length:** Aim for readable line lengths, generally under 100 characters.
 
 ### Naming Conventions
-- **Local Variables:** `snake_case` (e.g., `line_len`, `char_pos`).
-- **Functions:** `snake_case` (e.g., `get_next_position`).
-- **Module Functions:** `M.function_name`.
-- **Types/Classes:** `camelCase` is observed in annotations (e.g., `motionOpts`).
-- **Constants:** `UPPER_SNAKE_CASE` (standard convention).
-
-### Imports and Dependencies
-- **Safety:** Use `pcall` when `require`-ing optional dependencies.
+- **Variables & Functions:** Use `snake_case` (e.g., `local start_pos`, `function get_inner_word_range`).
+- **Modules:** Use the standard `M` pattern:
   ```lua
-  local ok, lib = pcall(require, 'dependency')
-  if not ok then
-      -- fallback implementation
-  end
+  local M = {}
+  -- ... functions ...
+  return M
   ```
-- **Standard Library:** Prefer `vim.*` utility functions (e.g., `vim.iter`, `vim.tbl_deep_extend`) over implementing custom helpers when possible.
-- **String Handling:** Handle UTF-8 correctly. Prefer `lua-utf8` if available, falling back to `string` (standard Lua) methods carefully.
+- **Private Functions:** Define helper functions as `local` before the module definition or at the top of the file.
 
-### Type Checking & Documentation
-- **EmmyLua:** Use EmmyLua annotations for all functions.
-- **Parameters:** Document all parameters with `---@param`.
-- **Returns:** Document return values with `---@return`.
-- **Types:** Define complex table structures using `---@class`.
-  ```lua
-  ---@class (exact) motionOpts
-  ---@field count integer|nil
-  ---@field multi_line boolean
-  local default_opts = {}
-  ```
+### Type Definitions
+Use LuaCATS annotations (Doxygen-style) for function parameters and return values, especially for public API methods.
+
+```lua
+---@param key "iw"|"aw" inner or around
+---@param mode vimMode
+function M.word(key, mode)
+```
 
 ### Error Handling
-- **User-Facing:** Use `vim.notify` for errors that the user needs to see.
+- Use `pcall` or `xpcall` if a function might fail and crash Neovim.
+- For user-facing errors, use `vim.notify`:
   ```lua
-  vim.notify("Error message", vim.log.levels.ERROR, { title = "PluginName" })
+  vim.notify("Error message", vim.log.levels.ERROR, { title = "TextObject" })
   ```
-- **Internal:** Return `nil` to signal failure in low-level functions (e.g., `get_next_position` returns `number|nil`).
-- **Guards:** Validate inputs early (e.g., check valid motion keys).
 
-### Neovim Specifics
-- **API:** Use `vim.api.nvim_*` for editor interactions.
-- **Cursor:** `vim.api.nvim_win_get_cursor(0)` returns `(1,0)`-indexed positions.
-- **Lines:** `vim.api.nvim_buf_get_lines` is 0-indexed.
-- **Keymaps:**
-  - Use `<Plug>` mappings for internal functionality exposed to users.
-  - Use `vim.keymap.set` for creating mappings.
-  - Define `expr = true` mappings for operator-pending or insert mode actions that return keys to be executed.
+### File Structure
+- **Imports:** Group `require` calls at the top of the file.
+- **Module Setup:** If the module has a setup function, define it as `function M.setup()`.
+- **Lazy Loading:** For performance, heavy requires can be moved inside the functions that use them, though top-level requires are standard for core logic.
 
-## Architecture & Patterns
-- **Functional Iteration:** Use `vim.iter` for map/fold operations on lists.
-- **Defaults:** Use `vim.tbl_deep_extend("force", defaults, opts)` for merging user configuration.
-- **Modes:** Handle different modes (`n`, `x`, `o`) explicitly where necessary.
-- **Efficiency:** Cache repeatedly used functions (e.g., `local find, sub = string.find, string.sub`).
+### Modifying Code
+- **Context:** Always read the surrounding code to match the exact style (e.g., spacing around operators, table formatting).
+- **Comments:** Add comments for complex logic (like the `get_inner_word_range` algorithm). Do not over-comment obvious code.
 
-## Existing Rules
-- No `.cursorrules` or Copilot instructions found in the repository.
+## 3. Cursor/Copilot Rules
 
-## Future Work: `aw` Implementation
+*No specific `.cursorrules` or Copilot instructions were found in the repository.*
 
-### Context
-We have implemented the `iw` (inner word) text object in `lua/onword.lua`. It correctly selects:
-1.  The word itself if the cursor is on a word.
-2.  The whitespace block if the cursor is on whitespace (leading or trailing).
+## 4. Project Structure
+- `lua/onword/`: Core plugin code.
+  - `init.lua`: Plugin entry point and setup.
+  - `motions.lua`: Motion logic.
+  - `textobjects.lua`: Text object definitions and algorithms.
+  - `utils.lua`: Utility functions (length, byte conversions).
+- `tests/`: Test files.
+  - `textobjects.lua`: Standalone test runner.
 
-The `aw` (around word) text object is currently a stub that falls back to `iw` behavior.
-
-### Implementation Sketch
-The `aw` logic needs to be implemented in `M.text_objects.word`.
-
-**Algorithm Idea:**
-1.  Get the `iw` range using `get_inner_word_range(cursor_pos)`.
-2.  Check if the `iw` range covers a word (i.e., not just whitespace).
-    *   *Helper:* `getline(row):sub(start_col+1, end_col+1):match("^%s+$")`
-3.  If it is a word:
-    *   **Priority 1:** Check for trailing whitespace. Extend `end_pos` to include it.
-    *   **Priority 2:** If no trailing whitespace exists, check for leading whitespace. Extend `start_pos` to include it.
-4.  If it is already whitespace (from `iw`):
-    *   Decide on behavior. Standard Vim usually selects the whitespace plus the following word? Or just the whitespace? *Needs specification.*
-
-### Verification
-- Use `tests/repro_textobjects.lua`.
-- **New Test Cases Required:**
-  - `aw` on word with trailing whitespace `foo |bar  baz` -> selects `bar  `
-  - `aw` on word with leading whitespace only `  |foo` -> selects `  foo`
-  - `aw` on word surrounded by nothing `|foo` -> selects `foo`
-  - `aw` on whitespace `foo|   bar` -> ?
+When creating new files, ensure they are placed in the appropriate subdirectory under `lua/onword/`.
