@@ -144,22 +144,35 @@ Ensure that the luarocks module directories are added into the `package.path` an
 For example, you can add the following code snippet to your `init.lua` before loading any plugins:
 
 ```lua
-if vim.fn.executable("luarocks") then
-	local process = vim.system({ 'luarocks', 'config', 'deploy_lua_dir' }, { text = true }):wait()
-	local exit_code, stdout = process.code, process.stdout:gsub("\n", "")
-	if exit_code == 0 then
-        -- Add luarocks modules.
-        package.path = package.path .. ';' .. vim.fs.joinpath(stdout, '?.lua')
-		package.path = package.path .. ';' .. vim.fs.joinpath(stdout, '?', 'init.lua')
+-- Add luarocks packages to the Lua package loader
+if vim.fn.executable("luarocks") ~= 0 then
+	local cmds = {
+		{ 'luarocks', '--lua-version=5.1', 'config',            'deploy_lua_dir' },
+		{ 'luarocks', '--local',           '--lua-version=5.1', 'config',        'deploy_lua_dir' },
+	}
+	for _, cmd in ipairs(cmds) do
+		local process = vim.system(cmd, { text = true }):wait()
+		local exit_code, stdout = process.code, process.stdout:gsub("\n", "")
+		if exit_code == 0 then
+			-- Add luarocks modules
+			package.path = package.path .. ';' .. vim.fs.joinpath(stdout, '?.lua')
+			package.path = package.path .. ';' .. vim.fs.joinpath(stdout, '?', 'init.lua')
+		end
 	end
-	process = vim.system({ 'luarocks', 'config', 'deploy_lib_dir' }, { text = true }):wait()
-	exit_code, stdout = process.code, process.stdout:gsub("\n", "")
-	if exit_code == 0 then
-		-- Add luarocks binary libraries with appropriate extension.
-		local extension = (jit.os:find('Windows') and '.dll')
-			or (jit.os == 'OSX' and '.dylib')
-			or (jit.os == 'Linux' and '.so')
-		package.cpath = package.cpath .. ';' .. vim.fs.joinpath(stdout, '?' .. extension)
+	cmds = {
+		{ 'luarocks', '--lua-version=5.1', 'config',            'deploy_lib_dir' },
+		{ 'luarocks', '--local',           '--lua-version=5.1', 'config',        'deploy_lib_dir' },
+	}
+	for _, cmd in ipairs(cmds) do
+		local process = vim.system(cmd, { text = true }):wait()
+		local exit_code, stdout = process.code, process.stdout:gsub("\n", "")
+		if exit_code == 0 then
+			-- Add luarocks binary libraries with appropriate extension.
+			local extension = (jit.os:find('Windows') and '.dll')
+				or (jit.os == 'OSX' and '.dylib')
+				or (jit.os == 'Linux' and '.so')
+			package.cpath = package.cpath .. ';' .. vim.fs.joinpath(stdout, '?' .. extension)
+		end
 	end
 end
 ```
