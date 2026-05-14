@@ -11,8 +11,8 @@ if ok then
 	end
 else
 	M.find, M.sub, M.len = string.find, string.sub, string.len
-	M.char_pos_to_byte_idx = function(_, pos) return pos end
-	M.byte_idx_to_char_pos = function(_, pos) return pos end
+	M.char_pos_to_byte_idx = function(_, pos) return pos, pos end
+	M.byte_idx_to_char_pos = function(_, pos) return pos, pos end
 end
 
 ---Returns the content of the given line number.
