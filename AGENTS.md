@@ -40,7 +40,7 @@ Adhere strictly to the following conventions to maintain consistency with the ex
 - **Private Functions:** Define helper functions as `local` before the module definition or at the top of the file.
 
 ### Type Definitions
-Use LuaCATS annotations (Doxygen-style) for function parameters and return values, especially for public API methods.
+Use LuaLS annotations for function parameters and return values, especially for public API methods.
 
 ```lua
 ---@param key "iw"|"aw" inner or around
