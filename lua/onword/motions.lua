@@ -86,7 +86,7 @@ function M.compute_motion(motion, start_pos)
 			char_pos = is_forward and 0 or line_len + 1
 		end
 	end
-	return { cur_lnum, utils.char_pos_to_byte_idx(line, char_pos) - 1 }
+	return { cur_lnum, utils.char_pos_to_byte_range(line, char_pos) - 1 }
 end
 
 ---Moves the cursor to the destination of the specified subword motion.

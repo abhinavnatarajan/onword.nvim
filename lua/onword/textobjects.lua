@@ -11,7 +11,7 @@ local utils = require("onword.utils")
 
 local len, char_pos_to_byte_idx, byte_idx_to_char_pos, getline =
 	utils.len,
-	utils.char_pos_to_byte_idx,
+	utils.char_pos_to_byte_range,
 	utils.byte_idx_to_char_pos,
 	utils.getline
 

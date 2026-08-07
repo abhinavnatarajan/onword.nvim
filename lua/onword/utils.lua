@@ -3,15 +3,48 @@ local M = {}
 local ok, utf8 = pcall(require, 'lua-utf8')
 
 if ok then
-	M.find, M.sub, M.len = utf8.find, utf8.sub, utf8.len
-	M.char_pos_to_byte_idx = utf8.offset
-	M.byte_idx_to_char_pos = function(str, byte_idx)
-		local _, char_end_byte = utf8.offset(str, 0, math.min(byte_idx, string.len(str)))
-		return utf8.len(str, 1, char_end_byte)
+	-- TODO: utf8.find does not correctly work with strings containing combining diacritical
+	-- characters
+	M.find = utf8.find
+	---@param str string
+	---@param start integer 1-based starting character index
+	---@param stop integer 1-based stopping character index (inclusive)
+	function M.sub(str, start, stop)
+		stop = stop or -1
+		local strlen = vim.fn.strcharlen(str)
+
+		if start < 0 then
+			start = strlen + start + 1
+		end
+		if stop < 0 then
+			stop = strlen + stop + 1
+		end
+		if start > stop then
+			return ""
+		end
+		return vim.fn.strcharpart(str, start - 1, stop - start + 1, 1)
+	end
+
+	M.len = vim.fn.strcharlen
+	---@param str string
+	---@param char_idx integer 1-based character index in the string
+	---@return integer first, integer last 1-based index of the starting and ending bytes of the character
+	function M.char_pos_to_byte_range(str, char_idx)
+		local first = vim.fn.byteidx(str, char_idx - 1) + 1
+		local charlen = #vim.fn.strcharpart(str:sub(first), 0, 1, 1)
+		local last = first + charlen - 1
+		return first, last
+	end
+
+	---@param str string
+	---@param byte_idx integer 1-based index of the byte in the string
+	---@return integer char_idx index of the character containing the given byte
+	function M.byte_idx_to_char_pos(str, byte_idx)
+		return vim.fn.charidx(str, byte_idx - 1) + 1
 	end
 else
 	M.find, M.sub, M.len = string.find, string.sub, string.len
-	M.char_pos_to_byte_idx = function(_, pos) return pos, pos end
+	M.char_pos_to_byte_range = function(_, pos) return pos, pos end
 	M.byte_idx_to_char_pos = function(_, pos) return pos, pos end
 end
 
@@ -20,6 +53,10 @@ end
 ---@return string
 function M.getline(lnum)
 	return vim.api.nvim_buf_get_lines(0, lnum - 1, lnum, true)[1]
+end
+
+local function pattern_is_achored_to_end(pattern)
+	return pattern:sub(-1) == "$" and pattern:sub(-2, -2) ~= "%"
 end
 
 ---Returns the next character position in the line matching any of the given patterns.
@@ -83,7 +120,7 @@ end
 
 ---Returns the previous character position in the line matching any of the given patterns.
 ---@param ln table<string, integer> the line to search and its length
----@param init_char_pos number the character position to start searching backwards from
+---@param init_char_pos number 1-based character position to start searching backwards from
 ---@param pats table the patterns to search for
 ---@param must_move boolean|nil whether we must move at least one position
 ---@return number|nil result previous character position found, or nil
@@ -108,8 +145,7 @@ function M.get_prev_position(ln, init_char_pos, pats, must_move)
 		-- If the pattern is anchored at the end of the line with $,
 		-- and we are not searching from the end of the line, return nil.
 		if end_search < line_len
-			and M.sub(pattern, M.len(pattern)) == "$"
-			and M.sub(pattern, -2) ~= "%" then
+			and pattern_is_achored_to_end(pattern) then
 			return nil
 		end
 		local _, match_end = M.find_prev_match(line, pattern, end_search)
